@@ -87,7 +87,7 @@ void loop() {
 
       // 检查手机发来的控制命令（1=开始，0=停止）
       if (rxChar.written()) {
-        byte cmd = rxChar.value();
+        byte cmd = rxChar.value()[0];
         isRecording = (cmd == 1);
         Serial.print("录制状态：");
         Serial.println(isRecording ? "开始" : "停止");

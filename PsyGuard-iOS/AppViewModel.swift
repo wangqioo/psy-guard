@@ -11,6 +11,7 @@ final class AppViewModel: ObservableObject, BLEManagerDelegate, ServerRelayDeleg
     @Published var alerts: [AlertMessage] = []
     @Published var bleConnected: Bool = false
     @Published var serverConnected: Bool = false
+    @Published var transcript: String = ""  // 实时转写文字
 
     // MARK: - Private
 
@@ -69,7 +70,6 @@ final class AppViewModel: ObservableObject, BLEManagerDelegate, ServerRelayDeleg
     }
 
     func bleDidReceiveAudio(_ data: Data) {
-        print("[VM] bleDidReceiveAudio \(data.count) bytes")
         relay.sendAudioChunk(data)
     }
 
@@ -97,9 +97,16 @@ final class AppViewModel: ObservableObject, BLEManagerDelegate, ServerRelayDeleg
 
     func relayDidReceiveAlert(_ alert: AlertMessage) {
         alerts.insert(alert, at: 0)  // 最新的在最上面
-        // 限制最多显示 50 条
         if alerts.count > 50 {
             alerts = Array(alerts.prefix(50))
+        }
+    }
+
+    func relayDidReceiveTranscript(_ text: String) {
+        // 追加到滚动字幕，最多保留最近 500 字
+        transcript += text
+        if transcript.count > 500 {
+            transcript = String(transcript.suffix(500))
         }
     }
 }

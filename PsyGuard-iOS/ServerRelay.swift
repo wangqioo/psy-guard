@@ -27,6 +27,7 @@ protocol ServerRelayDelegate: AnyObject {
     func relayDidConnect()
     func relayDidDisconnect()
     func relayDidReceiveAlert(_ alert: AlertMessage)
+    func relayDidReceiveTranscript(_ text: String)
 }
 
 final class ServerRelay: NSObject {
@@ -49,17 +50,6 @@ final class ServerRelay: NSObject {
         urlSession = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
     }
 
-    private func wsTaskState() -> String {
-        switch webSocketTask?.state {
-        case .running: return "running"
-        case .suspended: return "suspended"
-        case .canceling: return "canceling"
-        case .completed: return "completed"
-        case .none: return "nil"
-        @unknown default: return "unknown"
-        }
-    }
-
     // MARK: - Public API
 
     func connect() {
@@ -77,15 +67,11 @@ final class ServerRelay: NSObject {
     }
 
     func sendStart() {
-        webSocketTask?.send(.string("START")) { error in
-            if let error { print("[Relay] START error: \(error)") }
-        }
+        webSocketTask?.send(.string("START")) { _ in }
     }
 
     func sendStop() {
-        webSocketTask?.send(.string("STOP")) { error in
-            if let error { print("[Relay] STOP error: \(error)") }
-        }
+        webSocketTask?.send(.string("STOP")) { _ in }
     }
 
     /// BLE 收到音频块 -> 进缓冲区 -> 达到阈值后发给服务器
@@ -109,7 +95,6 @@ final class ServerRelay: NSObject {
     // MARK: - Private
 
     private func flushBuffer() {
-        print("[Relay] flushBuffer isConnected=\(isConnected) bufferSize=\(sendBuffer.count) wsTask=\(wsTaskState())")
         guard isConnected, !sendBuffer.isEmpty else {
             sendBuffer.removeAll()
             return
@@ -117,11 +102,7 @@ final class ServerRelay: NSObject {
         let payload = sendBuffer
         sendBuffer.removeAll()
         let message = URLSessionWebSocketTask.Message.data(payload)
-        webSocketTask?.send(message) { error in
-            if let error {
-                print("[Relay] send error: \(error)")
-            }
-        }
+        webSocketTask?.send(message) { _ in }
     }
 
     private func receiveLoop() {
@@ -131,8 +112,7 @@ final class ServerRelay: NSObject {
             case .success(let message):
                 self.handleMessage(message)
                 self.receiveLoop()  // 继续监听
-            case .failure(let error):
-                print("[Relay] receive error: \(error)")
+            case .failure:
                 self.handleDisconnect()
             }
         }
@@ -154,12 +134,18 @@ final class ServerRelay: NSObject {
     private func parseAlert(_ json: String) {
         guard let data = json.data(using: .utf8),
               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              dict["type"] as? String == "alert" else { return }
+              let type = dict["type"] as? String else { return }
 
+        if type == "transcript" {
+            let text = dict["text"] as? String ?? ""
+            DispatchQueue.main.async { self.delegate?.relayDidReceiveTranscript(text) }
+            return
+        }
+
+        guard type == "alert" else { return }
         let level = AlertMessage.AlertLevel(rawValue: dict["level"] as? String ?? "low") ?? .low
         let keyword = dict["keyword"] as? String ?? ""
         let text = dict["text"] as? String ?? ""
-
         let alert = AlertMessage(level: level, keyword: keyword, text: text, time: Date())
         DispatchQueue.main.async {
             self.delegate?.relayDidReceiveAlert(alert)
@@ -189,7 +175,6 @@ extension ServerRelay: URLSessionWebSocketDelegate {
         DispatchQueue.main.async {
             self.delegate?.relayDidConnect()
         }
-        print("[Relay] connected to server")
     }
 
     func urlSession(_ session: URLSession,

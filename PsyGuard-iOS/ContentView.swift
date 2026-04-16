@@ -9,6 +9,7 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 statusBar
                 recordButton
+                transcriptBox
                 alertList
             }
             .navigationTitle("心理咨询预警")
@@ -68,6 +69,33 @@ struct ContentView: View {
         .padding(.vertical, 32)
         .disabled(!vm.bleConnected)
         .opacity(vm.bleConnected ? 1 : 0.4)
+    }
+
+    // MARK: - 实时字幕
+
+    private var transcriptBox: some View {
+        Group {
+            if vm.isRecording || !vm.transcript.isEmpty {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        Text(vm.transcript.isEmpty ? "等待语音..." : vm.transcript)
+                            .font(.footnote)
+                            .foregroundStyle(vm.transcript.isEmpty ? .secondary : .primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
+                            .id("bottom")
+                    }
+                    .frame(height: 80)
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+                    .onChange(of: vm.transcript) { _, _ in
+                        proxy.scrollTo("bottom", anchor: .bottom)
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - 预警列表

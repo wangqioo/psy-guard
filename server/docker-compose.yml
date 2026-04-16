@@ -10,7 +10,10 @@ services:
       - LLM_BASE_URL=http://localhost:8086/v1
       - LLM_MODEL=gemma-4-E4B-it-Q4_K_M.gguf
       - LLM_API_KEY=none
-      - WINDOW_SEC=3
+      - WINDOW_SEC=5
+      - MIN_TEXT_LEN=4
+      - CONTEXT_MAX_CHARS=300
+      - LLM_CONCURRENCY=1
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c",

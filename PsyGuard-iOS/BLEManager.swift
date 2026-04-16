@@ -45,7 +45,6 @@ final class BLEManager: NSObject, ObservableObject {
         }
         state = .scanning
         delegate?.bleStateChanged(.scanning)
-        print("[BLE] 开始扫描所有设备...")
         centralManager.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
     }
 
@@ -74,18 +73,9 @@ extension BLEManager: CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         switch central.state {
         case .poweredOn:
-            print("[BLE] 蓝牙已开启，开始扫描")
             startScan()
-        case .poweredOff:
-            print("[BLE] 蓝牙已关闭")
-        case .unauthorized:
-            print("[BLE] 蓝牙权限被拒绝")
-        case .unsupported:
-            print("[BLE] 设备不支持蓝牙")
-        case .resetting:
-            print("[BLE] 蓝牙重置中")
-        case .unknown:
-            print("[BLE] 蓝牙状态未知")
+        case .poweredOff, .unauthorized, .unsupported, .resetting, .unknown:
+            break
         @unknown default:
             break
         }
@@ -95,9 +85,9 @@ extension BLEManager: CBCentralManagerDelegate {
                         didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any],
                         rssi RSSI: NSNumber) {
-        let name = peripheral.name ?? "(无名)"
-        print("[BLE] 发现设备: \(name)  RSSI=\(RSSI)  advData=\(advertisementData.keys.joined(separator: ","))")
+        let name = peripheral.name ?? ""
         guard name.contains("XIAO") || name.contains("Sense") || name.contains("Psy") || name.contains("Arduino") else { return }
+        print("[BLE] found: \(name)")
 
         self.peripheral = peripheral
         centralManager.stopScan()
